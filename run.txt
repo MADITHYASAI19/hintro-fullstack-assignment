@@ -1,0 +1,32 @@
+git clone <repo-url>
+cd project
+
+# Backend
+cd backend
+npm install
+cp .env.example .env
+# Edit .env with your MONGO_URI, JWT_SECRET
+
+# Run with MongoDB
+npm run dev
+
+# OR run standalone (no MongoDB needed)
+npm run standalone
+
+# Backend runs on http://localhost:5000
+
+# Frontend (new terminal)
+cd ../frontend
+npm install
+npm run dev
+
+# Frontend runs on http://localhost:5173
+
+# Demo credentials (standalone mode)
+# admin@gmail.com / password
+# user1@gmail.com / password
+# user2@gmail.com / password
+
+# Run tests
+cd ../backend && npm test
+cd ../frontend && npm test
