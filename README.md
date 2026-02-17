@@ -139,19 +139,75 @@ Open <http://localhost:5173>
 |DELETE|/api/tasks/:id|Delete task|Yes|
 |GET|/api/tasks/search|Search tasks (paginated)|Yes|
 
-## Real-Time Strategy
+## Database Schema
 
-Socket.io rooms scoped by `boardId`. When a user opens a board, the client joins that room. Server broadcasts events to all users in the room:
+The application uses **MongoDB** with Mongoose. The schema is relational via `ObjectId` references.
 
-- `task_created` — new task added
-- `task_updated` — task edited or moved between lists
-- `task_deleted` — task removed
-- `list_created` — new list added
-- `activity_created` — new activity log entry
+### 1. User
 
-Frontend listens for these events and updates state without page refresh.
+```json
+{
+  "_id": "ObjectId",
+  "username": "String (Unique)",
+  "email": "String (Unique)",
+  "password": "String (Hashed)",
+  "createdAt": "Date"
+}
+```
 
-## Database Indexes
+### 2. Board
+
+```json
+{
+  "_id": "ObjectId",
+  "title": "String",
+  "user": "ObjectId (Ref: User)",
+  "createdAt": "Date"
+}
+```
+
+### 3. List
+
+```json
+{
+  "_id": "ObjectId",
+  "title": "String",
+  "board": "ObjectId (Ref: Board)",
+  "position": "Number",
+  "createdAt": "Date"
+}
+```
+
+### 4. Task
+
+```json
+{
+  "_id": "ObjectId",
+  "title": "String",
+  "description": "String",
+  "board": "ObjectId (Ref: Board)",
+  "list": "ObjectId (Ref: List)",
+  "assignedTo": ["ObjectId (Ref: User)"],
+  "position": "Number",
+  "deadline": "Date",
+  "createdAt": "Date"
+}
+```
+
+### 5. Activity
+
+```json
+{
+  "_id": "ObjectId",
+  "board": "ObjectId (Ref: Board)",
+  "user": "String (Username snapshot)",
+  "action": "String (Enum: created, updated, deleted, moved)",
+  "details": "String",
+  "timestamp": "Date"
+}
+```
+
+### Indexes
 
 |Collection|Index|Purpose|
 |---|---|---|
@@ -160,6 +216,32 @@ Frontend listens for these events and updates state without page refresh.
 |Task|`{ assignedTo: 1 }`|Filter by assignment|
 |Task|`{ list: 1, position: 1 }`|Sort tasks within a list|
 |Activity|`{ board: 1, timestamp: -1 }`|Activity log queries|
+
+## Real-Time Strategy
+
+The system uses **Socket.io** with a **Room-based Architecture** for efficient scaling.
+
+### Workflow
+
+1. **Connection**: Client connects to WebSocket server on load.
+2. **Join Room**: When opening a board, client emits `join_board` with `boardId`. Server adds socket to `room:boardId`.
+3. **Broadcasting**:
+    - User A performs an action (e.g., moves a task).
+    - API updates the database.
+    - Server emits event (e.g., `task_updated`) to `room:boardId`.
+    - User B (in the same room) receives event and UI updates instantly.
+
+### Events
+
+- **`task_created`**: New task card appears in the list.
+- **`task_updated`**: Updates title, description, or position (drag-and-drop).
+- **`task_deleted`**: Task card is removed.
+- **`list_created`**: New list column appears.
+- **`activity_created`**: Activity log sidebar updates.
+
+### Optimistic UI
+
+Frontend updates state *immediately* on drag-and-drop. If the server request fails, it reverts changes to ensure consistency.
 
 ## Scalability Considerations
 
